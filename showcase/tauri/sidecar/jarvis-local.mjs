@@ -114,6 +114,32 @@ function normalizedFile(term) {
   return checkRead(term, home).path;
 }
 
+async function indexedOrLocal(root, term, query) {
+  const { stdout } = await runFile('/usr/bin/mdfind', ['-0', '-onlyin', root, query], {
+    timeout: 4000, maxBuffer: 1024 * 1024,
+  }).catch(() => ({ stdout: '' }));
+  const indexed = stdout.split('\0').filter(Boolean).slice(0, 60);
+  if (indexed.some((file) => norm(path.basename(file)) === norm(term) || norm(path.parse(file).name) === norm(term))) return indexed;
+
+  const matches = new Set(indexed);
+  const folders = [{ dir: root, depth: 0 }];
+  const wanted = norm(term);
+  const deadline = Date.now() + 1600;
+  for (let at = 0; at < folders.length && at < 600 && Date.now() < deadline; at++) {
+    const { dir, depth } = folders[at];
+    const items = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const item of items) {
+      if (item.name.startsWith('.') || protectedLocation(item.name)) continue;
+      const candidate = path.join(dir, item.name);
+      if (item.isDirectory() && depth < 6 && folders.length < 600) folders.push({ dir: candidate, depth: depth + 1 });
+      if (item.isFile() && norm(item.name).includes(wanted)) matches.add(candidate);
+      if (matches.size >= 60) break;
+    }
+    if (matches.size >= 60) break;
+  }
+  return [...matches];
+}
+
 export async function findLocalFiles(term, settings) {
   if (!term || term.length > 1024 || /[\x00-\x1f\x7f]/.test(term)) return [];
   const explicit = normalizedFile(term);
@@ -125,10 +151,7 @@ export async function findLocalFiles(term, settings) {
   const query = 'kMDItemFSName == "*' + term.replace(/[\\"*?\[\]]/g, (char) => '\\' + char) + '*"cd';
   const found = new Set();
   for (const root of await repoRoots(roots)) {
-    const { stdout } = await runFile('/usr/bin/mdfind', ['-0', '-onlyin', root, query], {
-      timeout: 4000, maxBuffer: 1024 * 1024,
-    }).catch(() => ({ stdout: '' }));
-    for (const p of stdout.split('\0').slice(0, 60)) {
+    for (const p of await indexedOrLocal(root, term, query)) {
       if (!p || !inside(root, p) || protectedLocation(p)) continue;
       const file = await realpath(p).catch(() => null);
       if (file && inside(root, file) && await safeFile(file)) found.add(file);
