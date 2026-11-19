@@ -740,7 +740,7 @@ fn show_panel(app: &AppHandle, rect: Option<tauri::Rect>, toggle: bool) {
         Some(w) => w,
         None => {
             let b = WebviewWindowBuilder::new(app, PANEL_LABEL, WebviewUrl::App("panel/index.html".into()))
-                .title("Roamies")
+                .title(APP_NAME)
                 .inner_size(PANEL_W, PANEL_H)
                 .resizable(false)
                 .maximizable(false)
@@ -898,7 +898,7 @@ fn open_onboarding(app: &AppHandle, mode: Option<&str>) {
     }
     let url = if chat { "onboarding/index.html?mode=chat" } else { "onboarding/index.html" };
     let mut b = WebviewWindowBuilder::new(app, ONBOARDING_LABEL, WebviewUrl::App(url.into()))
-        .title(if chat { "Get to know you" } else { "Welcome to Roamies" })
+        .title(if chat { "Get to know you" } else { if cfg!(target_os = "macos") { "Welcome to Jarvis" } else { "Welcome to Roamies" } })
         .inner_size(780.0, 540.0)
         .resizable(false)
         .maximizable(false)
@@ -1090,7 +1090,7 @@ fn build_overlays(app: &AppHandle) -> tauri::Result<()> {
         #[cfg(not(target_os = "linux"))]
         let unmanaged = false;
         let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App("desktop.html".into()))
-            .title("Roamies")
+            .title(APP_NAME)
             .visible(!unmanaged)
             .transparent(true)
             .decorations(false)
@@ -1573,12 +1573,13 @@ fn log_stdio(name: &str) -> Stdio {
         .unwrap_or_else(Stdio::null)
 }
 
-/// Where the app's own logs go: ~/Roamies/Data/logs. Until the sidecar has moved old data out of ~/.gg (datadir.mjs),
-/// they stay in ~/.gg, so creating the new folder here never makes that move think it's already done.
+const APP_NAME: &str = if cfg!(target_os = "macos") { "Jarvis" } else { "Roamies" };
+
+/// Jarvis uses its own logs. Roamies waits for the legacy migration before creating its new Data directory.
 fn log_path(home: &std::path::Path, name: &str) -> Option<PathBuf> {
-    let data = home.join("Roamies").join("Data");
+    let data = home.join(APP_NAME).join("Data");
     let old = home.join(".gg");
-    if !data.exists() && (old.join("sidekick").exists() || old.join("sidekick.json").exists()) {
+    if APP_NAME == "Roamies" && !data.exists() && (old.join("sidekick").exists() || old.join("sidekick.json").exists()) {
         return Some(old.join(name));
     }
     let logs = data.join("logs");
@@ -1883,12 +1884,12 @@ fn main() {
                 app.set_menu(Menu::default(app.handle())?)?;
             }
 
-            let starting = MenuItem::with_id(app, "status", "Starting Roamies…", false, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit Roamies", true, None::<&str>)?;
+            let starting = MenuItem::with_id(app, "status", format!("Starting {APP_NAME}…"), false, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", format!("Quit {APP_NAME}"), true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&starting, &quit])?;
             // Left click opens the panel; right click shows the short menu.
             let mut tray = TrayIconBuilder::with_id("roamies")
-                .tooltip("Roamies")
+                .tooltip(APP_NAME)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, e| {
@@ -1907,10 +1908,10 @@ fn main() {
             tray.build(app)?;
 
             init_hotkeys(app.handle());
-            if let Err(e) = set_hotkey(0, "Control+Alt+KeyS") {
+            if let Err(e) = set_hotkey(0, if cfg!(target_os = "macos") { "Control+Shift+Alt+KeyS" } else { "Control+Alt+KeyS" }) {
                 eprintln!("could not register the show/hide shortcut: {e}");
             }
-            if let Err(e) = set_hotkey(1, "Control+Alt+KeyA") {
+            if let Err(e) = set_hotkey(1, if cfg!(target_os = "macos") { "Control+Shift+Alt+KeyA" } else { "Control+Alt+KeyA" }) {
                 eprintln!("could not register the area shortcut: {e}");
             }
             #[cfg(target_os = "macos")]
@@ -1995,19 +1996,24 @@ mod tests {
     }
 
     #[test]
-    fn app_logs_go_in_the_roamies_data_folder_once_old_data_has_moved() {
+    fn app_logs_stay_with_the_product_data() {
         let home = std::env::temp_dir().join(format!("roamies-logpath-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(home.join(".gg").join("sidekick")).unwrap();
-        assert_eq!(log_path(&home, "sidekick.log"), Some(home.join(".gg").join("sidekick.log")), "old data not moved yet");
-        assert!(!home.join("Roamies").exists(), "and Data/ isn't created early");
-        std::fs::create_dir_all(home.join("Roamies").join("Data")).unwrap();
-        let logs = home.join("Roamies").join("Data").join("logs");
+        if APP_NAME == "Roamies" {
+            assert_eq!(log_path(&home, "sidekick.log"), Some(home.join(".gg").join("sidekick.log")), "old data not moved yet");
+            assert!(!home.join(APP_NAME).exists(), "and Data/ isn't created early");
+        } else {
+            assert_eq!(log_path(&home, "sidekick.log"), Some(home.join(APP_NAME).join("Data").join("logs").join("sidekick.log")));
+            assert!(!home.join(".gg").join("sidekick.log").exists());
+        }
+        std::fs::create_dir_all(home.join(APP_NAME).join("Data")).unwrap();
+        let logs = home.join(APP_NAME).join("Data").join("logs");
         assert_eq!(log_path(&home, "sidekick.log"), Some(logs.join("sidekick.log")), "after the move");
         assert!(logs.is_dir(), "the logs folder is made");
         let fresh = home.join("fresh");
         std::fs::create_dir_all(&fresh).unwrap();
-        assert_eq!(log_path(&fresh, "sidekick-voice.log"), Some(fresh.join("Roamies").join("Data").join("logs").join("sidekick-voice.log")), "a fresh install");
+        assert_eq!(log_path(&fresh, "sidekick-voice.log"), Some(fresh.join(APP_NAME).join("Data").join("logs").join("sidekick-voice.log")), "a fresh install");
         let _ = std::fs::remove_dir_all(&home);
     }
 }

@@ -2,6 +2,35 @@
   <img src="showcase/tauri/src-tauri/icons/128x128@2x.png" width="128" alt="Roamies icon">
 </p>
 
+## Jarvis para macOS
+
+Este fork mantém o aplicativo do Roamies e inclui um painel Jarvis com integrações locais. O bundle do Mac tem identidade própria e guarda configurações, conversas, memória e lembretes em `~/Jarvis`. Os provedores de conversa continuam usando o login compartilhado do GG Coder. Credenciais adicionais do Jarvis ficam nas Chaves do macOS.
+
+Abra **Jarvis** na barra de menus. Use o campo do painel ou segure **Control + Shift** para falar. Escolha **Português (Brasil)** ou **English (US)** em **Idioma e fala**. O reconhecimento usa um idioma por vez. A resposta segue o pedido, com opção de fixar o idioma. A voz do macOS pode falar as respostas quando o provedor de voz estiver desativado.
+
+| Integração | Comando |
+| --- | --- |
+| Herdr | `/herdr codex em /caminho/do/projeto: resuma as mudanças`. Escolha `codex`, `claude` ou `cursor`. Revise a tarefa e a pasta antes do envio. O Jarvis abre o agente na sessão local `jarvis` e espera o terminal aceitar o texto. |
+| Slack | `/slack open <link-do-canal>` ou `/slack reply <link-da-mensagem>: texto`. No painel, configure um destino padrão para pedir por voz “abra o Slack” ou “responda no Slack com…”. Cada envio pede revisão do texto, destino e identidade do bot. |
+| GitHub | `/github owner/repo` lista até dez PRs abertos. `/github <link-do-PR>` lê status, head e checks com a sessão do `gh` para `github.com`. |
+| Linear | “Qual é a próxima task que eu tenho?” ou `/linear`. Usa a identidade autenticada do MCP oficial do Linear no Codex ou uma chave pessoal de leitura no painel. Prioriza tarefas em andamento, depois prontas. Desempata por prioridade e ordem do Linear. Pelo MCP, usa a última atualização quando as prioridades empatam. |
+| Teams Web | `/teams open` abre uma aba dedicada. Ative o áudio nela e compartilhe essa aba com **Compartilhar áudio da aba**, mantendo seu microfone. Avise os participantes sobre a voz do Jarvis. Diga “fale no Teams” seguido da frase, ou use `/teams say texto`. Use `/teams stop` para desativar. |
+
+**Repositórios e arquivos.** Diga “explique o repositório Example” ou use `/repo Example`. O Jarvis procura a raiz Git nas pastas configuradas, lê a descrição do README quando existe e resume a estrutura, o remoto e o estado do Git. Diga “abra o arquivo relatório.pdf” ou informe o caminho exato. Por nome, ele consulta o Spotlight nas pastas Desktop, Documents e Downloads. O painel pede uma escolha quando há vários candidatos.
+
+**Agenda e e-mail.** Diga “agende Revisão amanhã às 14:30” ou use `/agenda amanhã 14:30 45m: Revisão | convidado@example.test`. Revise data, hora, fuso e convidados. Para eventos sem convidados, o Jarvis pode salvar no calendário padrão após receber a permissão de gravação. Quando houver convidados ou o acesso estiver indisponível, o Calendar abre o arquivo para revisão e importação. Diga “escreva um e-mail para pessoa arroba example ponto test, assunto Revisão, mensagem Oi” ou use `/email pessoa@example.test | Revisão | Oi`. O cliente padrão abre a composição sem enviar.
+
+**Reescrita.** Selecione um trecho no editor e diga “esse trecho tá ruim, reescreve para mim”. O modelo de conversa recebe o trecho selecionado e o painel mostra a versão proposta. Com Acessibilidade habilitada e a mesma seleção no editor, a confirmação cola somente o texto revisado. Use **⌘Z** para desfazer. “Sugira uma versão para o trecho” mostra a proposta sem editar.
+
+Para Slack, use um token bot do workspace correto com `chat:write` e acesso de leitura no destino. Use o link da mensagem original se o bot puder ler o histórico mas não tiver acesso à lista de respostas da thread.
+
+Para o Linear via Codex, o App Server chama diretamente as ferramentas de leitura `get_user` e `list_issues` do servidor `linear` em `https://mcp.linear.app/mcp`. Esse fluxo usa o OAuth existente e dispensa uma sessão de inferência. A alternativa pela API pessoal usa apenas consultas GraphQL.
+
+O modo de conversa continua sendo o Roamies. Codex, Claude e Cursor no Herdr usam as sessões dos respectivos CLIs no Mac. A aba do Teams recebe áudio sintetizado localmente e aguarda retorno de reprodução do navegador. Ela não captura microfone, áudio do sistema ou a reunião.
+
+Para empacotar só o aplicativo no Mac, rode `npm ci` em `showcase/tauri/sidecar` e `TAURI_BUNDLES=app ./build.sh` em `showcase/tauri`, com a CLI do Tauri e o toolchain Rust no PATH. O build local é atualizado pelo checkout deste fork.
+
+
 <p align="center">
   <img src="docs/art/hero.gif" alt="Roamies: JARVIS, a glowing globe of LED dots, ripples as it says &quot;At your service.&quot; beside a mouse cursor, while Roamie, Anime Girl, Sarah and Adrian wave and hop on either side">
 </p>

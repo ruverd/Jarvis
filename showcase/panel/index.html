@@ -32,6 +32,7 @@
   <!-- One page per concern: what's going on, what it remembers, then a page for each group of settings. -->
   <nav class="side" aria-label="Panel">
     <ul class="nav">
+      <li id="jarvis-sidebar" hidden><button class="px navi" type="button" id="nav-jarvis" data-page="jarvis" aria-controls="pane-jarvis">Jarvis<span class="dot" aria-hidden="true"></span></button></li>
       <li><button class="px navi" type="button" id="nav-home" data-page="home" aria-controls="pane-home" aria-current="page">Home<span class="dot" aria-hidden="true"></span></button></li>
       <li><button class="px navi" type="button" id="nav-memory" data-page="memory" aria-controls="pane-memory">Memory<span class="dot" aria-hidden="true"></span></button></li>
       <li><button class="px navi" type="button" id="nav-abilities" data-page="abilities" aria-controls="pane-abilities">Abilities<span class="dot" aria-hidden="true"></span></button></li>
@@ -46,6 +47,7 @@
     </ul>
   </nav>
   <main class="body">
+    <section class="pane" id="pane-jarvis" aria-labelledby="nav-jarvis" hidden></section>
     <section class="pane" id="pane-home" aria-labelledby="nav-home"></section>
     <section class="pane" id="pane-memory" aria-labelledby="nav-memory" hidden></section>
     <section class="pane" id="pane-abilities" aria-labelledby="nav-abilities" hidden></section>

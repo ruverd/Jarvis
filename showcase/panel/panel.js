@@ -210,6 +210,7 @@
 
   // ---------------------------------------------------------------- header
   function head() {
+    $('jarvis-sidebar').hidden = !state.jarvis;
     const s = state.status;
     $('led').className = `led${s.state === 'ready' ? ' on' : s.state === 'busy' ? ' busy' : ''}`;
     const now = $('now');
@@ -1038,14 +1039,81 @@
     ];
   }
 
+  function jarvisPage() {
+    const j = state.jarvis;
+    if (!j) return [];
+    const review = j.review;
+    const pt = review?.lang !== 'en';
+    const approval = review?.kind === 'calendar'
+      ? (pt ? 'Confirmar evento' : 'Confirm event')
+      : review?.kind === 'rewrite' ? (pt ? 'Substituir seleção' : 'Replace selection') : (pt ? 'Confirmar envio' : 'Confirm send');
+    const box = (text) => el('div', { className: 'jarvis-copy', textContent: text });
+    const sendReview = (approve) => send({ type: 'jarvis_review', id: review.id, approve });
+    const links = (items) => items.map(({ label, url }) => btn(label, () => send({ type: 'open_link', url })));
+    const field = (label, { name, value, secret = false, submit, button = 'Salvar', multiline = false }) => {
+      const input = el(multiline ? 'textarea' : 'input', {
+        ...(multiline ? { rows: 2 } : { type: secret ? 'password' : 'text' }),
+        value, autocomplete: 'off', spellcheck: false, placeholder: label, 'aria-label': label, 'data-k': name,
+      });
+      return el('form', { className: 'jarvis-form', on: { submit: (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (text) { submit(text); if (!value || secret) input.value = ''; input.blur(); }
+      } } }, input, el('button', { className: 'px btn ghost', type: 'submit', textContent: button, disabled: name === 'jarvis-command' && j.busy }));
+    };
+    const form = field('Escreva um comando em português ou inglês', {
+      name: 'jarvis-command', button: 'Enviar', multiline: true,
+      submit: (text) => send({ type: 'jarvis_submit', text }),
+    });
+    const select = (label, key, options) => {
+      const pick = el('select', { 'aria-label': label, on: { change: (e) => send({ type: 'jarvis_preferences', [key]: e.target.value }) } },
+        options.map(([value, text]) => el('option', { value, textContent: text })));
+      pick.value = j[key];
+      return el('label', { className: 'jarvis-choice' }, label, pick);
+    };
+    return [
+      review && group(pt ? 'Revisar ação' : 'Review action', null, null,
+        box(review.target + (review.as ? (pt ? '\nComo bot: ' : '\nAs bot: ') + review.as : '')),
+        ...(review.url ? links([{ label: pt ? 'Ver destino no Slack' : 'View Slack destination', url: review.url }]) : []),
+        box(review.text),
+        el('div', { className: 'jarvis-buttons' },
+          btn(approval, () => sendReview(true), { kind: 'primary' }),
+          btn(pt ? 'Cancelar' : 'Cancel', () => sendReview(false)))),
+      j.result && group(j.lang === 'en' ? 'Result' : 'Resultado', null, null,
+        box(j.result.text), el('div', { className: 'jarvis-buttons' }, ...links(j.result.links),
+          ...j.result.choices.map(({ label, command }) => btn(label, () => send({ type: 'jarvis_submit', text: command }))))),
+      group('Comandos', 'Use o campo abaixo ou segure ⌃⇧ para falar. Links e caminhos completos funcionam melhor colados.', null,
+        form,
+        box('Qual é a próxima task que eu tenho?\n/github owner/repo ou link do PR\n/herdr codex: descreva a tarefa\n/slack open <link do canal>\n/slack reply <link da mensagem>: texto\n/teams say Bom dia, pessoal.')),
+      group('Teams Web', 'Ative o áudio na aba, compartilhe apenas essa aba no Teams Web e mantenha seu microfone ativo. Os comandos /teams say e /teams stop controlam a fala.', null,
+        el('div', { className: 'jarvis-buttons' },
+          btn('Abrir aba de áudio', () => send({ type: 'jarvis_submit', text: '/teams open' })),
+          btn('Desativar áudio', () => send({ type: 'jarvis_submit', text: '/teams stop' })))),
+      group('Idioma e fala', 'A entrada por voz usa um idioma por vez. Respostas automáticas seguem o idioma do pedido. A fala do macOS complementa o modo original quando ele está sem voz.', null,
+        select('Reconhecimento', 'inputLang', [['pt-BR', 'Português (Brasil)'], ['en-US', 'English (US)'], ['auto', 'Preferências do Mac']]),
+        select('Idioma da resposta', 'lang', [['auto', 'Idioma do pedido'], ['pt', 'Português (Brasil)'], ['en', 'English']]),
+        select('Fala local', 'speak', [['voice', 'Pedidos por voz'], ['always', 'Voz e texto'], ['off', 'Desativada']])),
+      group('Herdr', 'Escolha Codex, Claude ou Cursor no comando. Para uma tarefa específica, inclua o caminho depois de “em” ou “in”.', null,
+        field('Pasta padrão do Herdr', { name: 'jarvis-folder', value: j.folder, submit: (path) => send({ type: 'jarvis_folder', path }) })),
+      group('Mac e repositórios', 'Use /repo nome, /arquivo nome ou /agenda amanhã 14:30 30m: Compromisso. Escreva um e-mail com /email destinatário | Assunto | Mensagem.', null,
+        box('Selecione um trecho no editor e diga “esse trecho tá ruim, reescreve para mim”. O painel mostra a versão antes de substituir.'),
+        field('Raízes dos repositórios, uma por linha', { name: 'jarvis-repo-roots', value: j.roots, multiline: true, submit: (paths) => send({ type: 'jarvis_repo_roots', paths }) })),
+      group('Slack', 'Salve um destino para abrir ou responder por voz sem ditar o link. Diga “abra o Slack” ou “responda no Slack com…”.', null,
+        field('Link padrão do Slack', { name: 'jarvis-slack-target', value: j.slackTarget, submit: (url) => send({ type: 'jarvis_slack_destination', url }) })),
+      group('Credenciais', 'GitHub usa a sessão do gh. Linear usa o OAuth do Codex ou uma chave de leitura. As chaves salvas ficam nas Chaves do macOS.', null,
+        field('Token bot do Slack', { name: 'jarvis-slack-key', secret: true, submit: (value) => send({ type: 'jarvis_secret', service: 'slack', value }) }),
+        field('Chave de leitura do Linear', { name: 'jarvis-linear-key', secret: true, submit: (value) => send({ type: 'jarvis_secret', service: 'linear', value }) })),
+    ];
+  }
+
   // ---------------------------------------------------------------- render
-  const PANES = { home, memory, abilities: abilitiesPage, model: modelPage, appearance: appearancePage, speaking: speakingPage, listening: listeningPage, shortcuts: shortcutsPage, general: generalPage, about: aboutPage, whatsnew: whatsNewPage };
+  const PANES = { jarvis: jarvisPage, home, memory, abilities: abilitiesPage, model: modelPage, appearance: appearancePage, speaking: speakingPage, listening: listeningPage, shortcuts: shortcutsPage, general: generalPage, about: aboutPage, whatsnew: whatsNewPage };
   // focusKey: what to focus after (a data-k, or an element id); otherwise whatever had focus keeps it.
   function render(focusKey, animate = false) {
     if (!state) return;
     const active = document.activeElement;
     // Never rebuild under someone typing a key: catch up when they leave the field.
-    if (!focusKey && !animate && active?.tagName === 'INPUT' && active.closest('.pane')) { deferred = true; return; }
+    if (!focusKey && !animate && ['INPUT', 'TEXTAREA'].includes(active?.tagName) && active.closest('.pane')) { deferred = true; return; }
     deferred = false;
     const keep = focusKey ?? active?.dataset?.k ?? (active?.id?.startsWith('key-') ? active.id : null);
     hideTip();
@@ -1072,7 +1140,7 @@
     }
     if (keep) (document.querySelector(`.pane [data-k="${CSS.escape(keep)}"]`) ?? document.getElementById(keep))?.focus();
   }
-  document.addEventListener('focusout', (e) => { if (deferred && e.target.tagName === 'INPUT') setTimeout(() => deferred && render(), 0); });
+  document.addEventListener('focusout', (e) => { if (deferred && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) setTimeout(() => deferred && render(), 0); });
   // The window changes size with the screen it opens on: as many rows as fit there.
   let resizeTimer = 0;
   addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => state && render(), 120); });

@@ -11,14 +11,15 @@ const SKIP = (name) => name === '.DS_Store' || name.endsWith('.tmp') || name ===
 const TMP = /^\.Data-(\d+)\.tmp$/;
 
 export const baseDir = (env = process.env) => env.ROAMIES_DATA_DIR || os.homedir();
-export const roamiesDir = (env = process.env) => path.join(baseDir(env), 'Roamies');
+const product = (env) => env.ROAMIES_APP_NAME === 'Jarvis' ? 'Jarvis' : 'Roamies';
+export const roamiesDir = (env = process.env) => path.join(baseDir(env), product(env));
 
 // The old layout: ~/.gg/sidekick and ~/.gg/sidekick.json, or <ROAMIES_DATA_DIR>/sidekick(.json) in tests.
 export const oldBase = (env = process.env) => env.ROAMIES_DATA_DIR || path.join(os.homedir(), '.gg');
 
 /** Every path, new and old: `base` holds Roamies/, `old` holds the old sidekick/ and sidekick.json. */
-export function layout(base, old) {
-  const root = path.join(base, 'Roamies');
+export function layout(base, old, name = 'Roamies') {
+  const root = path.join(base, name);
   return { root, dir: path.join(root, 'Data'), config: path.join(root, 'Data', 'settings.json'), oldDir: path.join(old, 'sidekick'), oldConfig: path.join(old, 'sidekick.json') };
 }
 
@@ -67,10 +68,10 @@ function verify(files, tmp) {
  * `agent` (a background agent's process) never migrates, it follows whatever the main process left.
  * `afterCopy(tmp)` is for tests.
  */
-export function migrateData({ base = baseDir(), old = oldBase(), agent = false, log = (m) => console.error(`[datadir] ${m}`), afterCopy } = {}) {
-  const L = layout(base, old);
+export function migrateData({ base = baseDir(), old = oldBase(), name = 'Roamies', agent = false, log = (m) => console.error(`[datadir] ${m}`), afterCopy } = {}) {
+  const L = layout(base, old, name);
   const paths = { root: L.root, dir: L.dir, config: L.config, legacy: false, migrated: false };
-  const hasOld = isDir(L.oldDir) || existsSync(L.oldConfig);
+  const hasOld = name === 'Roamies' && (isDir(L.oldDir) || existsSync(L.oldConfig));
   if (existsSync(L.dir) || !hasOld) return paths;
   const legacy = { ...paths, dir: L.oldDir, config: L.oldConfig, legacy: true };
   if (agent) return legacy;
@@ -113,9 +114,10 @@ export function migrateData({ base = baseDir(), old = oldBase(), agent = false, 
 const cache = new Map();
 /** Paths for the current home (or ROAMIES_DATA_DIR), migrating on first use; resolved once per folder. */
 export function dataPaths(env = process.env) {
-  const base = baseDir(env);
-  if (!cache.has(base)) cache.set(base, migrateData({ base, old: oldBase(env), agent: !!env.ROAMIES_AGENT }));
-  return cache.get(base);
+  const base = baseDir(env), name = product(env);
+  const key = path.join(base, name);
+  if (!cache.has(key)) cache.set(key, migrateData({ base, old: oldBase(env), name, agent: !!env.ROAMIES_AGENT }));
+  return cache.get(key);
 }
 
 const here = dataPaths();

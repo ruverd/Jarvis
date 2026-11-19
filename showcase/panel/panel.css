@@ -379,3 +379,11 @@ html, body { height: 100%; background: transparent; }
 
 /* Arabic and Hebrew in a list (dir=auto on the text): the Arabic font first, for its own word spacing. */
 .item .text:dir(rtl) { font-family: "Roamies Arabic RTL", var(--mono); }
+
+
+.jarvis-form, .jarvis-choice, .jarvis-buttons { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.jarvis-buttons { flex-wrap: wrap; }
+.jarvis-form input, .jarvis-form textarea { min-width: 0; flex: 1; }
+.jarvis-form input, .jarvis-form textarea, .jarvis-choice select { font: inherit; padding: 5px 8px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 4px; }
+.jarvis-choice { justify-content: space-between; }
+.jarvis-copy { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; }

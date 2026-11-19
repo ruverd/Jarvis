@@ -1,4 +1,6 @@
 {
+  "productName": "Jarvis",
+  "identifier": "com.ruverd.jarvis",
   "bundle": {
     "externalBin": [
       "binaries/roamies-voice",
@@ -23,6 +25,7 @@
       },
       "hardenedRuntime": true,
       "entitlements": "Roamies.entitlements"
-    }
+    },
+    "createUpdaterArtifacts": false
   }
 }

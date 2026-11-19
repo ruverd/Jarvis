@@ -15,7 +15,7 @@ const verdict = (level, reason = '') => ({ level, reason });
 const SECRET = [
   /(^|\/)\.ssh(\/|$)/, /(^|\/)\.gnupg(\/|$)/, /(^|\/)\.aws(\/|$)/, /(^|\/)\.azure(\/|$)/, /(^|\/)\.kube\/config$/,
   /(^|\/)\.docker\/config\.json$/, /(^|\/)\.netrc$/, /(^|\/)\.npmrc$/, /(^|\/)\.pypirc$/, /(^|\/)\.git-credentials$/,
-  /(^|\/)\.config\/gh(\/|$)/, /(^|\/)\.config\/gcloud(\/|$)/, /(^|\/)\.gg\/auth\.json$/, /(^|\/)Roamies\/Data\/secrets\.json$/i, /(^|\/)\.tauri(\/|$)/,
+  /(^|\/)\.config\/gh(\/|$)/, /(^|\/)\.config\/gcloud(\/|$)/, /(^|\/)\.gg\/auth\.json$/, /(^|\/)(?:Roamies|Jarvis)\/Data\/(?:auth|secrets|test-secrets)\.json(?:\.lock|\.bak)?$/i, /(^|\/)\.tauri(\/|$)/,
   /(^|\/)Library\/Keychains(\/|$)/, /(^|\/)Library\/Cookies(\/|$)/, /\/(Cookies|Login Data|Web Data)(-journal)?$/,
   /(^|\/)\.env(\.[\w-]+)?$/, /\.(pem|p12|pfx|key|keystore|jks)$/i, /(^|\/)id_(rsa|ed25519|ecdsa|dsa)(\.pub)?$/,
   /(^|\/)\.(bash|zsh|fish)_history$/, /(^|\/)\.zsh_sessions(\/|$)/,
@@ -34,7 +34,7 @@ const PRIVATE = [
 const NO_WRITE = [
   /(^|\/)\.(zshrc|zprofile|zshenv|zlogin|bashrc|bash_profile|profile|login|inputrc)$/, /(^|\/)\.config\/fish(\/|$)/,
   /(^|\/)Library\/(LaunchAgents|LaunchDaemons|StartupItems|Preferences|Keychains|Application Support\/com\.apple)(\/|$)/,
-  /(^|\/)\.gitconfig$/, /(^|\/)\.ssh(\/|$)/, /(^|\/)\.gg(\/|$)/, /(^|\/)Roamies\/(Skills|Data)(\/|$)/i, /(^|\/)\.tauri(\/|$)/, /\.app(\/|$)/, /(^|\/)crontab$/,
+  /(^|\/)\.gitconfig$/, /(^|\/)\.ssh(\/|$)/, /(^|\/)\.gg(\/|$)/, /(^|\/)(?:Roamies|Jarvis)\/(Skills|Data)(\/|$)/i, /(^|\/)\.tauri(\/|$)/, /\.app(\/|$)/, /(^|\/)crontab$/,
   /\/Start Menu\/Programs\/Startup(\/|$)/i, /(^|\/)Documents\/(Windows)?PowerShell\/.*profile\.ps1$/i, /^[a-z]:\/(Windows|Program Files( \(x86\))?|ProgramData)(\/|$)/i,
   // Linux: what starts at login (autostart entries, systemd user units, session environment), app launchers and
   // D-Bus services (each names a program the desktop runs), and the X session's startup files.

@@ -204,7 +204,7 @@ export function frontLine(f, who = 'The user') {
 
 // Git settings a downloaded repo's own config could use to run a program from a "read-only" git status or log:
 // switched off for every command the agent runs (git reads GIT_CONFIG_COUNT/KEY/VALUE over every config file).
-const GIT_SAFE = {
+export const GIT_SAFE = {
   GIT_CONFIG_COUNT: '4',
   GIT_CONFIG_KEY_0: 'core.fsmonitor', GIT_CONFIG_VALUE_0: 'false',
   GIT_CONFIG_KEY_1: 'core.pager', GIT_CONFIG_VALUE_1: 'cat',
