@@ -49,7 +49,7 @@ const git = async (cwd, ...args) => {
   for (const key of Object.keys(env)) if (key.startsWith('GIT_')) delete env[key];
   const { stdout } = await runFile('/usr/bin/git', ['--no-optional-locks', '-C', cwd, ...args], {
     env: { ...env, ...GIT_SAFE, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_NO_LAZY_FETCH: '1' },
-    timeout: 5000, maxBuffer: 1024 * 1024,
+    timeout: 12_000, maxBuffer: 1024 * 1024,
   });
   return stdout;
 };
@@ -124,14 +124,15 @@ async function indexedOrLocal(root, term, query) {
   const matches = new Set(indexed);
   const folders = [{ dir: root, depth: 0 }];
   const wanted = norm(term);
-  const deadline = Date.now() + 1600;
-  for (let at = 0; at < folders.length && at < 600 && Date.now() < deadline; at++) {
+  const deadline = Date.now() + 2500;
+  const maxDirectories = 1500;
+  for (let at = 0; at < folders.length && at < maxDirectories && Date.now() < deadline; at++) {
     const { dir, depth } = folders[at];
     const items = await readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const item of items) {
-      if (item.name.startsWith('.') || protectedLocation(item.name)) continue;
+      if (item.name.startsWith('.') || item.name === 'node_modules') continue;
       const candidate = path.join(dir, item.name);
-      if (item.isDirectory() && depth < 6 && folders.length < 600) folders.push({ dir: candidate, depth: depth + 1 });
+      if (item.isDirectory() && depth < 6 && folders.length < maxDirectories) folders.push({ dir: candidate, depth: depth + 1 });
       if (item.isFile() && norm(item.name).includes(wanted)) matches.add(candidate);
       if (matches.size >= 60) break;
     }
