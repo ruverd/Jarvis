@@ -61,7 +61,7 @@ private struct JarvisSelection {
     }
 }
 
-private func jarvisSelection(_ pid: pid_t) -> JarvisSelection? {
+private func jarvisSelection(_ pid: pid_t, windowID: Int? = nil) -> JarvisSelection? {
     guard AXIsProcessTrusted(), !isRoamies(pid), let app = NSRunningApplication(processIdentifier: pid),
           handsOff(pid) == nil, let bundle = app.bundleIdentifier,
           !bundle.lowercased().contains("password") else { return nil }
@@ -71,14 +71,15 @@ private func jarvisSelection(_ pid: pid_t) -> JarvisSelection? {
           let fieldValue = attr(ax, kAXFocusedUIElementAttribute), CFGetTypeID(fieldValue) == AXUIElementGetTypeID() else { return nil }
     let window = winValue as! AXUIElement
     let field = fieldValue as! AXUIElement
-    guard let role = str(field, kAXRoleAttribute), ["AXTextArea", "AXTextField"].contains(role),
+    guard let id = mainWindow(windows().filter { $0.pid == pid })?.id,
+          windowID == nil || id == windowID,
+          let role = str(field, kAXRoleAttribute), ["AXTextArea", "AXTextField"].contains(role),
           str(field, kAXSubroleAttribute) != "AXSecureTextField",
           let selected = str(field, kAXSelectedTextAttribute), !selected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
           selected.utf8.count <= 20_000,
           let full = str(field, kAXValueAttribute), full.utf8.count <= 2_000_000,
           let value = attr(field, kAXSelectedTextRangeAttribute), CFGetTypeID(value) == AXValueGetTypeID(),
-          let bounds = frameOf(attr(field, kAXPositionAttribute), attr(field, kAXSizeAttribute)),
-          let id = mainWindow(windows().filter { $0.pid == pid })?.id else { return nil }
+          let bounds = frameOf(attr(field, kAXPositionAttribute), attr(field, kAXSizeAttribute)) else { return nil }
     var range = CFRange()
     guard AXValueGetValue(value as! AXValue, .cfRange, &range),
           range.location >= 0, range.length > 0, range.location <= full.utf16.count,
@@ -91,8 +92,26 @@ private func jarvisSelection(_ pid: pid_t) -> JarvisSelection? {
     return JarvisSelection(field: field, app: app, stamp: stamp, selected: selected, full: full, range: range, title: title)
 }
 
-func readJarvisSelection() -> [String: Any] {
-    guard let pid = frontPid(), let snapshot = jarvisSelection(pid) else { return ["ok": false] }
+func jarvisSelectionOrigin() -> [String: Any] {
+    guard let current = frontPid() else { return ["ok": false] }
+    let visible = windows()
+    guard let pid = isRoamies(current) ? visible.first?.pid : current,
+          let window = mainWindow(visible.filter { $0.pid == pid }) else { return ["ok": false] }
+    return ["ok": true, "pid": pid, "windowID": window.id]
+}
+
+func readJarvisSelection(_ args: ArraySlice<String>) -> [String: Any] {
+    let snapshot: JarvisSelection?
+    if args.isEmpty {
+        guard let current = frontPid() else { return ["ok": false] }
+        snapshot = jarvisSelection(current)
+    } else if args.count == 2, let pid = args.first.flatMap(Int32.init), pid > 0,
+              let windowID = args.last.flatMap(Int.init), windowID > 0 {
+        snapshot = jarvisSelection(pid, windowID: windowID)
+    } else {
+        return ["ok": false]
+    }
+    guard let snapshot else { return ["ok": false] }
     return ["ok": true, "selection": snapshot.info]
 }
 

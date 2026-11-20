@@ -1442,7 +1442,8 @@ guard let cmd = args.first else { fail("no command") }
 
 switch cmd {
 case "calendar-create": out(createJarvisEvent())
-case "selection-read": out(readJarvisSelection())
+case "selection-origin": out(jarvisSelectionOrigin())
+case "selection-read": out(readJarvisSelection(args.dropFirst()))
 case "selection-replace": out(replaceJarvisSelection())
 
 // --self-test checks which of an app's windows is used and when typing may go ahead, with made-up cases; exits 1 on a failure.

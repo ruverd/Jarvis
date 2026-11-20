@@ -74,7 +74,7 @@ export function createJarvis({ prefs, save, secrets, dataDir, open, confirm, han
     settings: { async slack() { return slack.verify(); }, async linear() { return linear(() => secrets.get(LINEAR_KEY), dataDir); } },
     close: () => audio.close(),
     stop: () => audio.stop(),
-    async dispatch(command, lang) {
+    async dispatch(command, lang, selectionOrigin) {
       const t = (pt, en) => ptEn(lang, pt, en);
       const text = command.text;
       if (command.kind === 'teamsSay' && text?.length > 500) return result(t('Use até 500 caracteres por fala no Teams.', 'Use up to 500 characters per Teams line.'));
@@ -106,7 +106,7 @@ export function createJarvis({ prefs, save, secrets, dataDir, open, confirm, han
           const draft = mailDraft(text);
           if (!draft) return result(t('Use /email destinatário@exemplo.com | Assunto | Mensagem.', 'Use /email recipient@example.com | Subject | Message.'));
           await open(draft.url);
-          return result(t('Editor de e-mail aberto com o rascunho.', 'Opened an email compose window with the draft.'));
+          return result(t('Rascunho encaminhado ao app padrão de e-mail.', 'Handed the draft to the default email app.'));
         }
         if (command.kind === 'calendar') {
           const event = calendarDraft(text);
@@ -120,7 +120,7 @@ export function createJarvis({ prefs, save, secrets, dataDir, open, confirm, han
         }
         if (command.kind === 'rewrite') {
           if (!rewrite) throw new Error();
-          const draft = await rewrite.read(lang);
+          const draft = await rewrite.read(lang, selectionOrigin);
           if (!command.replace) return result(draft.text);
           if (!await confirm({ id: randomUUID(), kind: 'rewrite', target: draft.target, text: draft.text, lang })) return result(t('Seleção preservada.', 'Selection left as it was.'));
           const changed = await rewrite.apply(draft, lang);

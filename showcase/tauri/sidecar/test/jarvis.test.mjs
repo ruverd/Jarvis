@@ -159,16 +159,25 @@ assert.equal(+new Date(event.end) - +new Date(event.start), 45 * 60_000);
 assert.match(calendarFile(event), /SUMMARY:Revisão\r\nATTENDEE:mailto:x@example.test\r\n/);
 assert.equal(calendarDraft('2026-11-31 10:00: Invalid', date), null);
 
-let replacements = 0, savedEvents = 0, destinations = [];
+let replacements = 0, savedEvents = 0, destinations = [], readOrigin;
 const native = (approve) => createJarvis({
   prefs: {}, save() {}, secrets: { get: () => null }, dataDir: '/tmp',
   open: (url) => { destinations.push(url); },
   confirm: async (r) => { confirmation = r; return approve; },
-  rewrite: { read: () => ({ pid: 12, stamp: 'old', target: 'Test editor', text: 'Edited line.' }), apply: () => { replacements++; return { ok: true }; } },
+  rewrite: {
+    read: (lang, origin) => {
+      readOrigin = origin;
+      return { pid: 12, stamp: 'old', target: 'Test editor', text: 'Edited line.' };
+    },
+    apply: () => { replacements++; return { ok: true }; },
+  },
   deps: { createCalendarEntry: () => { savedEvents++; return { saved: false }; } },
 });
 assert.equal((await native(true).dispatch({ kind: 'rewrite', replace: false }, 'en')).text, 'Edited line.');
-await native(false).dispatch({ kind: 'rewrite', replace: true }, 'en');
+assert.equal(readOrigin, undefined);
+const editorOrigin = { ok: true, pid: 12, windowID: 34 };
+await native(false).dispatch({ kind: 'rewrite', replace: true }, 'en', editorOrigin);
+assert.deepEqual(readOrigin, editorOrigin);
 assert.equal(replacements, 0);
 assert.equal(confirmation.text, 'Edited line.');
 assert.match((await native(true).dispatch({ kind: 'rewrite', replace: true }, 'en')).text, /Command-Z/);

@@ -2161,13 +2161,16 @@ const jarvis = JARVIS && createJarvis({
     openPanel('jarvis');
   }),
 });
-async function jarvisHands(method, input) {
+async function jarvisHands(args, input, timeout = 5000) {
   if (!HANDS_OK) return null;
-  const raw = await runInput(process.env.ROAMIES_HANDS, [method], input ? JSON.stringify(input) : '', 5000);
+  const raw = await runInput(process.env.ROAMIES_HANDS, args, input ? JSON.stringify(input) : '', timeout);
   try { return JSON.parse(raw.stdout.trim()); } catch { return null; }
 }
-async function readJarvisRewrite(lang) {
-  const { selection } = await jarvisHands('selection-read') ?? {};
+async function readJarvisRewrite(lang, origin) {
+  const args = ['selection-read'];
+  if (origin?.ok) args.push(String(origin.pid), String(origin.windowID));
+  const source = origin === undefined || origin?.ok ? await jarvisHands(args) : null;
+  const selection = source?.selection;
   if (!selection?.text) throw new JarvisError('Selecione texto em um editor compatível e autorize Acessibilidade para o Jarvis.', 'Select text in a compatible editor and grant Jarvis Accessibility access.');
   if (/(?:xox[baprs]-|lin_api_|-----BEGIN [A-Z ]+PRIVATE KEY-----|(?:password|token|secret)\s*[:=])/iu.test(selection.text)) {
     throw new JarvisError('O trecho parece conter uma credencial.', 'The selection appears to contain a credential.');
@@ -2181,7 +2184,7 @@ async function readJarvisRewrite(lang) {
   return { pid: selection.pid, stamp: selection.stamp, target: [selection.app, selection.title].filter(Boolean).join(' · '), text };
 }
 async function applyJarvisRewrite({ pid, stamp, text }) {
-  return await jarvisHands('selection-replace', { pid, stamp, text }) ?? { ok: false, attempted: true };
+  return await jarvisHands(['selection-replace'], { pid, stamp, text }) ?? { ok: false, attempted: true };
 }
 function endJarvisReview(approve) {
   const active = jarvisReview;
@@ -2191,7 +2194,7 @@ function endJarvisReview(approve) {
   active.resolve(approve);
   panel();
 }
-function submitJarvis(raw, byVoice = false, showPanel = false) {
+function submitJarvis(raw, byVoice = false, showPanel = false, selectionOrigin) {
   if (!jarvis) return false;
   const command = parseJarvis(raw);
   if (!command && !showPanel) return false;
@@ -2208,7 +2211,7 @@ function submitJarvis(raw, byVoice = false, showPanel = false) {
   if (!isStop) { jarvisBusy = true; jarvisResult = null; }
   if (showPanel && !panelOpen) openPanel('jarvis');
   else if (command.kind !== 'rewrite') panel();
-  jarvis.dispatch(command, lang).then((response) => {
+  jarvis.dispatch(command, lang, selectionOrigin).then((response) => {
     jarvisResult = response;
     say(response.text, 'happy');
     if ((response.links.length || response.choices.length || command.kind === 'repo' || command.kind === 'rewrite' && !command.replace) && !panelOpen) openPanel('jarvis');
@@ -2473,9 +2476,10 @@ async function typeToAsk({ interrupt = false, value = '' } = {}) {
   if (VOICE_ON()) speech.prewarm(); // the reply may be spoken: its socket opens while they type
   frontSoon = { at: Date.now(), p: whereNow() }; // and the front window, as for talking
   const ctl = barAsk = new AbortController();
-  const text = await ask({ placeholder: 'Ask me anything…', bar: true, ...(value ? { value } : {}) }, ctl.signal);
+  const origin = JARVIS ? await jarvisHands(['selection-origin'], undefined, 900) : undefined;
+  const text = ctl.signal.aborted ? null : await ask({ placeholder: 'Ask me anything…', bar: true, ...(value ? { value } : {}) }, ctl.signal);
   if (barAsk === ctl) barAsk = null;
-  if (text?.trim() && !submitJarvis(text.trim())) enqueue(text.trim(), { interrupt });
+  if (text?.trim() && !submitJarvis(text.trim(), false, false, origin)) enqueue(text.trim(), { interrupt });
 }
 function onWriteTap() {
   if (onboarding) return;
