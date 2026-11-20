@@ -1058,8 +1058,14 @@
       return el('form', { className: 'jarvis-form', on: { submit: (event) => {
         event.preventDefault();
         const text = input.value.trim();
-        if (text) { submit(text); if (!value || secret) input.value = ''; input.blur(); }
-      } } }, input, el('button', { className: 'px btn ghost', type: 'submit', textContent: button, disabled: name === 'jarvis-command' && j.busy }));
+        if (!text) return;
+        if (!value || secret) input.value = '';
+        if (event.currentTarget.contains(document.activeElement)) document.activeElement.blur();
+        submit(text);
+      } } }, input, el('button', {
+        className: 'px btn ghost', type: 'submit', textContent: button, disabled: name === 'jarvis-command' && j.busy,
+        on: { pointerdown: (event) => { if (document.activeElement === input) event.preventDefault(); } },
+      }));
     };
     const form = field('Escreva um comando em português ou inglês', {
       name: 'jarvis-command', button: 'Enviar', multiline: true,
@@ -1113,7 +1119,8 @@
     if (!state) return;
     const active = document.activeElement;
     // Never rebuild under someone typing a key: catch up when they leave the field.
-    if (!focusKey && !animate && ['INPUT', 'TEXTAREA'].includes(active?.tagName) && active.closest('.pane')) { deferred = true; return; }
+    if (!focusKey && !animate && active?.closest('.pane') &&
+      (['INPUT', 'TEXTAREA'].includes(active.tagName) || active.closest('.jarvis-form'))) { deferred = true; return; }
     deferred = false;
     const keep = focusKey ?? active?.dataset?.k ?? (active?.id?.startsWith('key-') ? active.id : null);
     hideTip();
@@ -1140,7 +1147,12 @@
     }
     if (keep) (document.querySelector(`.pane [data-k="${CSS.escape(keep)}"]`) ?? document.getElementById(keep))?.focus();
   }
-  document.addEventListener('focusout', (e) => { if (deferred && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) setTimeout(() => deferred && render(), 0); });
+  document.addEventListener('focusout', (e) => {
+    if (!deferred) return;
+    const form = e.target.closest?.('.jarvis-form');
+    if (form ? form.contains(e.relatedTarget) : !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+    setTimeout(() => deferred && render(), 0);
+  });
   // The window changes size with the screen it opens on: as many rows as fit there.
   let resizeTimer = 0;
   addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => state && render(), 120); });

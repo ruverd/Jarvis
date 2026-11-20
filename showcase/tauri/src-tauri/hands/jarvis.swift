@@ -77,7 +77,7 @@ private func jarvisSelection(_ pid: pid_t) -> JarvisSelection? {
           selected.utf8.count <= 20_000,
           let full = str(field, kAXValueAttribute), full.utf8.count <= 2_000_000,
           let value = attr(field, kAXSelectedTextRangeAttribute), CFGetTypeID(value) == AXValueGetTypeID(),
-          let frame = attr(field, kAXPositionAttribute),
+          let bounds = frameOf(attr(field, kAXPositionAttribute), attr(field, kAXSizeAttribute)),
           let id = mainWindow(windows().filter { $0.pid == pid })?.id else { return nil }
     var range = CFRange()
     guard AXValueGetValue(value as! AXValue, .cfRange, &range),
@@ -86,7 +86,7 @@ private func jarvisSelection(_ pid: pid_t) -> JarvisSelection? {
           (full as NSString).substring(with: NSRange(location: range.location, length: range.length)) == selected else { return nil }
     let title = str(window, kAXTitleAttribute) ?? ""
     let identifier = str(field, kAXIdentifierAttribute) ?? ""
-    let input = "\(pid)|\(id)|\(bundle)|\(title)|\(role)|\(identifier)|\(frame)|\(range.location)|\(range.length)|\(full)"
+    let input = "\(pid)|\(id)|\(bundle)|\(title)|\(role)|\(identifier)|\(bounds)|\(range.location)|\(range.length)|\(full)"
     let stamp = SHA256.hash(data: Data(input.utf8)).map { String(format: "%02x", $0) }.joined()
     return JarvisSelection(field: field, app: app, stamp: stamp, selected: selected, full: full, range: range, title: title)
 }
